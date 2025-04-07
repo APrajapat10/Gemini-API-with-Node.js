@@ -4,9 +4,29 @@ import "dotenv/config";
 const API_KEY = process.env.GOOGLE_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-// Define the tool schema
+// 🔧 Calculator function (tool implementation)
+function calculator({
+  operation,
+  a,
+  b,
+}){
+  switch (operation) {
+    case "add":
+      return a + b;
+    case "subtract":
+      return a - b;
+    case "multiply":
+      return a * b;
+    case "divide":
+      return b !== 0 ? a / b : "undefined (division by zero)";
+    default:
+      return "Unknown operation";
+  }
+}
+
+// 🧠 Gemini model with tool declaration
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-pro", // or "gemini-2.5-pro-exp-03-25"
+  model: "gemini-1.5-pro",
   tools: [
     {
       functionDeclarations: [
@@ -36,52 +56,25 @@ const model = genAI.getGenerativeModel({
 });
 
 async function main() {
-  // Create chat instance with empty history
-  const chat = model.startChat({
-    history: [], // You can also keep a running history for more advanced cases
-  });
+  const chat = model.startChat({ history: [] });
 
-  // User message
-  const userPrompt = "What’s 12 divided by 3?";
+  const userPrompt = "Can you subtract 5 from 20?";
 
-  // Send message to chat
   const result = await chat.sendMessage([{ text: userPrompt }]);
-
   const response = result.response;
-  console.log("response content is ",response.candidates[0].content);
+
   const part = response.candidates?.[0]?.content.parts?.[0];
 
-  // Check for function call
-  if (part.functionCall) {
+  if (part?.functionCall) {
     const { name, args } = part.functionCall;
     console.log(`Function called: ${name}`);
     console.log("Arguments:", args);
 
-    // Handle function
     if (name === "calculate") {
-      const { operation, a, b } = args;
-      let answer;
-      switch (operation) {
-        case "add":
-          answer = a + b;
-          break;
-        case "subtract":
-          answer = a - b;
-          break;
-        case "multiply":
-          answer = a * b;
-          break;
-        case "divide":
-          answer = b !== 0 ? a / b : "undefined (division by zero)";
-          break;
-        default:
-          answer = "Unknown operation";
-      }
-
-      console.log(`Tool Response: ${a} ${operation} ${b} = ${answer}`);
+      const answer = calculator(args);
+      console.log(`Tool Response: ${args.a} ${args.operation} ${args.b} = ${answer}`);
     }
   } else {
-    // If model just replies normally
     console.log("Model Response:", part?.text);
   }
 }
